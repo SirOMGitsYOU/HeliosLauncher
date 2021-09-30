@@ -381,16 +381,33 @@ function bindAuthAccountLogOut(){
     })
 }
 
+let data = null
+
 /**
  * Process a log out.
  * 
  * @param {Element} val The log out button element.
  * @param {boolean} isLastAccount If this logout is on the last added account.
  */
-function processLogOut(val, isLastAccount){
+function processLogOut(val, isLastAccount, skip = false) {
+    data = {
+        val,
+        isLastAccount
+    }
+
     const parent = val.closest('.settingsAuthAccount')
     const uuid = parent.getAttribute('uuid')
+
+    if (!skip) {
+        const account = ConfigManager.getAuthAccount(uuid)
+        if (account.type === 'microsoft') {
+            toggleOverlay(true, false, 'msOverlay')
+            ipcRenderer.send('openMSALogoutWindow', 'open')
+        }
+    }
+
     const prevSelAcc = ConfigManager.getSelectedAccount()
+
     AuthManager.removeAccount(uuid).then(() => {
         if(!isLastAccount && uuid === prevSelAcc.uuid){
             const selAcc = ConfigManager.getSelectedAccount()
@@ -399,10 +416,16 @@ function processLogOut(val, isLastAccount){
             validateSelectedAccount()
         }
     })
+
     $(parent).fadeOut(250, () => {
         parent.remove()
     })
 }
+
+ipcRenderer.on('MSALogoutWindowReply', (event, ...args) => {
+    toggleOverlay(false, false, 'msOverlay')
+    processLogOut(data.val, data.isLastAccount, true)
+})
 
 /**
  * Refreshes the status of the selected account on the auth account
